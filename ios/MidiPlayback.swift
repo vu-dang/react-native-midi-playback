@@ -10,17 +10,39 @@ class MidiPlayback: NSObject {
     var fileURL: URL?
     var midiData: Data?
 
+    // Resolve an input string to a usable URL. Accepts a file:// URL, an absolute
+    // path, or a bare resource name (e.g. "ode_to_joy.mid") which is looked up in
+    // the app's main bundle — that last form is how the host passes bundled
+    // .mid / .sf2 files.
+    private func resolveURL(_ input: String, defaultExt: String) -> URL? {
+        if input.hasPrefix("file:") {
+            return URL(string: input)
+        }
+        if input.hasPrefix("/") {
+            return URL(fileURLWithPath: input)
+        }
+        let ns = input as NSString
+        let ext = ns.pathExtension.isEmpty ? defaultExt : ns.pathExtension
+        let name = ns.deletingPathExtension
+        return Bundle.main.url(forResource: name, withExtension: ext)
+    }
+
     @objc(setPlaybackFile:)
     func setPlaybackFile(_ midiFileURL: NSString) {
-        self.fileURL = URL(string: midiFileURL as String)
+        self.fileURL = resolveURL(midiFileURL as String, defaultExt: "mid")
         self.midiData = nil
-        do {
-            try self.midiPlayer = AVMIDIPlayer(contentsOf: self.fileURL!, soundBankURL: self.soundBankURL)
-        } catch let error {
-            print(error.localizedDescription)
+        guard let fileURL = self.fileURL else {
+            print("MidiPlayback: could not resolve MIDI file: \(midiFileURL)")
+            self.midiPlayer = nil
+            return
         }
-
-        self.midiPlayer?.prepareToPlay()
+        do {
+            self.midiPlayer = try AVMIDIPlayer(contentsOf: fileURL, soundBankURL: self.soundBankURL)
+            self.midiPlayer?.prepareToPlay()
+        } catch let error {
+            print("MidiPlayback setPlaybackFile error: \(error.localizedDescription)")
+            self.midiPlayer = nil
+        }
     }
 
     @objc(setPlaybackData:)
@@ -38,24 +60,23 @@ class MidiPlayback: NSObject {
 
     @objc(setSoundBank:)
     func setSoundBank(_ soundBankURL: NSString) {
-        self.soundBankURL = URL(string: soundBankURL as String)
-        if self.midiPlayer != nil && self.fileURL != nil {
+        self.soundBankURL = resolveURL(soundBankURL as String, defaultExt: "sf2")
+        // Re-create the player so the new bank applies to the loaded file/data.
+        if let fileURL = self.fileURL {
             do {
-             try self.midiPlayer = AVMIDIPlayer(contentsOf: self.fileURL!, soundBankURL: self.soundBankURL)
+                self.midiPlayer = try AVMIDIPlayer(contentsOf: fileURL, soundBankURL: self.soundBankURL)
+                self.midiPlayer?.prepareToPlay()
             } catch let error {
-                print(error.localizedDescription)
+                print("MidiPlayback setSoundBank error: \(error.localizedDescription)")
+            }
+        } else if let data = self.midiData {
+            do {
+                self.midiPlayer = try AVMIDIPlayer(data: data, soundBankURL: self.soundBankURL)
+                self.midiPlayer?.prepareToPlay()
+            } catch let error {
+                print("MidiPlayback setSoundBank error: \(error.localizedDescription)")
             }
         }
-        else if self.midiPlayer != nil && self.midiData != nil {
-            do {
-                try self.midiPlayer = AVMIDIPlayer(data: self.midiData!, soundBankURL: self.soundBankURL)
-            } catch let error {
-                print(error.localizedDescription)
-            }
-            
-        }
-        
-        self.midiPlayer?.prepareToPlay()
     }
 
     @objc(play)

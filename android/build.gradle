@@ -1,39 +1,56 @@
 buildscript {
-  // Buildscript is evaluated before everything else so we can't use getExtOrDefault
-  def kotlin_version = rootProject.ext.has('kotlinVersion') ? rootProject.ext.get('kotlinVersion') : project.properties['MidiPlayback_kotlinVersion']
+  // Buildscript is evaluated before everything else so we can't use getExtOrDefault.
+  // Only needed when this library is opened as a standalone project; inside a host
+  // app the root project provides the Android Gradle plugin and Kotlin classpath.
+  def kotlin_version = rootProject.ext.has("kotlinVersion") ? rootProject.ext.get("kotlinVersion") : project.properties["MidiPlayback_kotlinVersion"]
 
   repositories {
     google()
-    jcenter()
+    mavenCentral()
   }
 
   dependencies {
-    classpath 'com.android.tools.build:gradle:4.1.1'
+    classpath "com.android.tools.build:gradle:7.2.1"
     // noinspection DifferentKotlinGradleVersion
     classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
   }
 }
 
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
 
-def getExtOrDefault(name) {
-  return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties['MidiPlayback_' + name]
+def getExtOrDefault(name, fallback) {
+  return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties["MidiPlayback_" + name] ?: fallback)
 }
 
-def getExtOrIntegerDefault(name) {
-  return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties['MidiPlayback_' + name]).toInteger()
+def getExtOrIntegerDefault(name, fallback) {
+  return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties["MidiPlayback_" + name]?.toInteger() ?: fallback)
+}
+
+def supportsNamespace() {
+  def parsed = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize('.')
+  def major = parsed[0].toInteger()
+  def minor = parsed[1].toInteger()
+  // Namespace support was added in AGP 7.3.0.
+  return (major == 7 && minor >= 3) || major >= 8
 }
 
 android {
-  compileSdkVersion getExtOrIntegerDefault('compileSdkVersion')
-  buildToolsVersion getExtOrDefault('buildToolsVersion')
-  defaultConfig {
-    minSdkVersion 16
-    targetSdkVersion getExtOrIntegerDefault('targetSdkVersion')
-    versionCode 1
-    versionName "1.0"
+  if (supportsNamespace()) {
+    namespace "com.reactnativemidiplayback"
 
+    sourceSets {
+      main {
+        manifest.srcFile "src/main/AndroidManifestNew.xml"
+      }
+    }
+  }
+
+  compileSdkVersion getExtOrIntegerDefault("compileSdkVersion", 34)
+
+  defaultConfig {
+    minSdkVersion getExtOrIntegerDefault("minSdkVersion", 21)
+    targetSdkVersion getExtOrIntegerDefault("targetSdkVersion", 34)
   }
 
   buildTypes {
@@ -41,90 +58,28 @@ android {
       minifyEnabled false
     }
   }
+
   lintOptions {
-    disable 'GradleCompatible'
+    disable "GradleCompatible"
   }
+
   compileOptions {
-    sourceCompatibility JavaVersion.VERSION_1_8
-    targetCompatibility JavaVersion.VERSION_1_8
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
   }
 }
 
 repositories {
   mavenCentral()
-  jcenter()
   google()
-
-  def found = false
-  def defaultDir = null
-  def androidSourcesName = 'React Native sources'
-
-  if (rootProject.ext.has('reactNativeAndroidRoot')) {
-    defaultDir = rootProject.ext.get('reactNativeAndroidRoot')
-  } else {
-    defaultDir = new File(
-            projectDir,
-            '/../../../node_modules/react-native/android'
-    )
-  }
-
-  if (defaultDir.exists()) {
-    maven {
-      url defaultDir.toString()
-      name androidSourcesName
-    }
-
-    logger.info(":${project.name}:reactNativeAndroidRoot ${defaultDir.canonicalPath}")
-    found = true
-  } else {
-    def parentDir = rootProject.projectDir
-
-    1.upto(5, {
-      if (found) return true
-      parentDir = parentDir.parentFile
-
-      def androidSourcesDir = new File(
-              parentDir,
-              'node_modules/react-native'
-      )
-
-      def androidPrebuiltBinaryDir = new File(
-              parentDir,
-              'node_modules/react-native/android'
-      )
-
-      if (androidPrebuiltBinaryDir.exists()) {
-        maven {
-          url androidPrebuiltBinaryDir.toString()
-          name androidSourcesName
-        }
-
-        logger.info(":${project.name}:reactNativeAndroidRoot ${androidPrebuiltBinaryDir.canonicalPath}")
-        found = true
-      } else if (androidSourcesDir.exists()) {
-        maven {
-          url androidSourcesDir.toString()
-          name androidSourcesName
-        }
-
-        logger.info(":${project.name}:reactNativeAndroidRoot ${androidSourcesDir.canonicalPath}")
-        found = true
-      }
-    })
-  }
-
-  if (!found) {
-    throw new GradleException(
-            "${project.name}: unable to locate React Native android sources. " +
-                    "Ensure you have you installed React Native as a dependency in your project and try again."
-    )
-  }
 }
 
-def kotlin_version = getExtOrDefault('kotlinVersion')
+def kotlin_version = getExtOrDefault("kotlinVersion", "1.8.0")
 
 dependencies {
-  // noinspection GradleDynamicVersion
-  api 'com.facebook.react:react-native:+'
+  // For < 0.71 this resolves from the local maven repo; for >= 0.71 the React
+  // Native Gradle plugin replaces it with com.facebook.react:react-android:$version.
+  //noinspection GradleDynamicVersion
+  implementation "com.facebook.react:react-native:+"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 }

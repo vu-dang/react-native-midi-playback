@@ -7,6 +7,7 @@ RCT_EXTERN_METHOD(setSoundBank:(NSString *)soundBankURL)
 RCT_EXTERN_METHOD(setPlaybackData:(NSData *)data)
 RCT_EXTERN_METHOD(play)
 RCT_EXTERN_METHOD(stop)
+RCT_EXTERN_METHOD(reset)
 RCT_EXTERN_METHOD(isPlaying)
 
 @end

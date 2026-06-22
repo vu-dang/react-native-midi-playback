@@ -6,6 +6,7 @@ type MidiPlaybackType = {
   setSoundBank(url: string): void;
   play(): void;
   stop(): void;
+  pause(): void;
   reset(): void;
   isPlaying(): boolean;
 };
