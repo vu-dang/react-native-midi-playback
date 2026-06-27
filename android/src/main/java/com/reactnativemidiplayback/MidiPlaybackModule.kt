@@ -19,7 +19,7 @@ class MidiPlaybackModule(reactContext: ReactApplicationContext) : ReactContextBa
   // "midi/ode_to_joy.mid" (the host app ships its .mid files under
   // src/main/assets/midi), but a file:// path or content Uri also works.
   // The single MediaPlayer instance is reset and reused for each file.
-  @ReactMethod(isBlockingSynchronousMethod = true)
+  @ReactMethod
   fun setPlaybackFile(url: String) {
     try {
       mediaPlayer.reset()
@@ -45,7 +45,7 @@ class MidiPlaybackModule(reactContext: ReactApplicationContext) : ReactContextBa
     }
   }
 
-  @ReactMethod(isBlockingSynchronousMethod = true)
+  @ReactMethod
   fun play() {
     try {
       mediaPlayer.start()
