@@ -1,8 +1,17 @@
 buildscript {
-  // Buildscript is evaluated before everything else so we can't use getExtOrDefault.
-  // Only needed when this library is opened as a standalone project; inside a host
-  // app the root project provides the Android Gradle plugin and Kotlin classpath.
-  def kotlin_version = rootProject.ext.has("kotlinVersion") ? rootProject.ext.get("kotlinVersion") : project.properties["MidiPlayback_kotlinVersion"]
+  ext.MidiPlayback = [
+    kotlinVersion: "2.0.21",
+    minSdkVersion: 24,
+    compileSdkVersion: 36
+  ]
+
+  ext.getExtOrDefault = { prop ->
+    if (rootProject.ext.has(prop)) {
+      return rootProject.ext.get(prop)
+    }
+
+    return MidiPlayback[prop]
+  }
 
   repositories {
     google()
@@ -10,57 +19,25 @@ buildscript {
   }
 
   dependencies {
-    classpath "com.android.tools.build:gradle:7.2.1"
+    classpath "com.android.tools.build:gradle:8.7.2"
     // noinspection DifferentKotlinGradleVersion
-    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion')}"
   }
 }
+
 
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
-def getExtOrDefault(name, fallback) {
-  return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties["MidiPlayback_" + name] ?: fallback)
-}
-
-def getExtOrIntegerDefault(name, fallback) {
-  return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties["MidiPlayback_" + name]?.toInteger() ?: fallback)
-}
-
-def supportsNamespace() {
-  def parsed = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize('.')
-  def major = parsed[0].toInteger()
-  def minor = parsed[1].toInteger()
-  // Namespace support was added in AGP 7.3.0.
-  return (major == 7 && minor >= 3) || major >= 8
-}
+apply plugin: "com.facebook.react"
 
 android {
-  if (supportsNamespace()) {
-    namespace "com.reactnativemidiplayback"
+  namespace "com.reactnativemidiplayback"
 
-    sourceSets {
-      main {
-        manifest.srcFile "src/main/AndroidManifestNew.xml"
-      }
-    }
-  }
-
-  compileSdkVersion getExtOrIntegerDefault("compileSdkVersion", 34)
+  compileSdkVersion getExtOrDefault("compileSdkVersion")
 
   defaultConfig {
-    minSdkVersion getExtOrIntegerDefault("minSdkVersion", 21)
-    targetSdkVersion getExtOrIntegerDefault("targetSdkVersion", 34)
-  }
-
-  buildTypes {
-    release {
-      minifyEnabled false
-    }
-  }
-
-  lintOptions {
-    disable "GradleCompatible"
+    minSdkVersion getExtOrDefault("minSdkVersion")
   }
 
   compileOptions {
@@ -69,17 +46,6 @@ android {
   }
 }
 
-repositories {
-  mavenCentral()
-  google()
-}
-
-def kotlin_version = getExtOrDefault("kotlinVersion", "1.8.0")
-
 dependencies {
-  // For < 0.71 this resolves from the local maven repo; for >= 0.71 the React
-  // Native Gradle plugin replaces it with com.facebook.react:react-android:$version.
-  //noinspection GradleDynamicVersion
-  implementation "com.facebook.react:react-native:+"
-  implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+  implementation "com.facebook.react:react-android"
 }
